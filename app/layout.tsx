@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
+import { Inter } from "next/font/google";
 import "./globals.css";
+
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
   title: "Upkeep | AI Maintenance Agent for Real Estate",
-  description: "Autonomous real-time voice call and chat maintenance triage for property management companies and tenants.",
+  description: "Voice and chat maintenance triage for property managers and tenants.",
 };
 
 export default function RootLayout({
@@ -12,10 +15,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className="min-h-screen bg-slate-50 text-slate-900 antialiased selection:bg-blue-100 selection:text-blue-900">
-        {children}
-      </body>
+    <html lang="en" className={inter.variable}>
+      <body className="min-h-screen font-sans">{children}</body>
     </html>
   );
 }

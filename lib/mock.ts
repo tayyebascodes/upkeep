@@ -1,27 +1,7 @@
-import { createClient } from '@supabase/supabase-js';
+// Sample data for the marketing page preview.
+import { Ticket } from "@/lib/types";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-
-export const isSupabaseConfigured =
-  Boolean(supabaseUrl) &&
-  Boolean(supabaseAnonKey) &&
-  !supabaseUrl.includes('your-project');
-
-export const supabase = isSupabaseConfigured
-  ? createClient(supabaseUrl, supabaseAnonKey)
-  : null;
-
-// Initial sample data fallback for immediate UI testing before keys are populated
-export const MOCK_PROPERTY = {
-  id: 'a0000000-0000-0000-0000-000000000001',
-  name: 'Sunset Heights Apartments',
-  slug: 'sunset-heights',
-  address: '104 Ocean View Ave, Miami, FL',
-  emergency_contact: '+1 (555) 911-0022',
-};
-
-export const MOCK_TICKETS = [
+export const MOCK_TICKETS: Ticket[] = [
   {
     id: 't-101',
     property_id: 'a0000000-0000-0000-0000-000000000001',

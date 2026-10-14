@@ -3,13 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
   },
   "dependencies": {
     "@11labs/react": "^0.1.4",
+    "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.48.0",
     "clsx": "^2.1.1",
     "lucide-react": "^0.475.0",

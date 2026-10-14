@@ -1,16 +1,19 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useConversation } from "@11labs/react";
-import { PhoneOff, Mic, MicOff, Volume2, Sparkles, AlertCircle } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { PhoneCall, PhoneOff, Mic, MicOff, Volume2, AlertCircle, X } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 
 interface VoiceCallModalProps {
   isOpen: boolean;
   onClose: () => void;
   propertyName: string;
   propertyId: string;
-  unitNumber?: string;
+  unitNumber: string;
+  tenantId: string;
+  tenantName?: string;
+  tenantPhone?: string;
   onTicketCreated?: () => void;
 }
 
@@ -19,14 +22,45 @@ export function VoiceCallModal({
   onClose,
   propertyName,
   propertyId,
-  unitNumber = "Unit 304",
+  unitNumber,
+  tenantId,
+  tenantName,
+  tenantPhone,
   onTicketCreated,
 }: VoiceCallModalProps) {
   const [isMuted, setIsMuted] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [transcriptLog, setTranscriptLog] = useState<Array<{ role: string; message: string }>>([]);
+  // Refs so the disconnect handler sees the latest transcript and saves only once per call.
+  const transcriptRef = useRef<Array<{ role: string; message: string }>>([]);
+  const savedRef = useRef(false);
 
   const agentId = process.env.NEXT_PUBLIC_ELEVENLABS_AGENT_ID || "agent_6601m4xcbnd7e7atdcr9fwr7sv0h";
+
+  // Sync ticket to Supabase when call ends
+  const handleCallEndSync = async () => {
+    const log = transcriptRef.current;
+    if (savedRef.current || log.length === 0) return;
+    savedRef.current = true;
+
+    const { error } = await createClient().from("tickets").insert([
+      {
+        property_id: propertyId,
+        tenant_id: tenantId,
+        tenant_name: tenantName,
+        tenant_phone: tenantPhone,
+        unit_number: unitNumber,
+        title: "Voice Call Inquiry",
+        description: log.map((t) => `${t.role}: ${t.message}`).join("\n"),
+        category: "Other",
+        severity: "Medium",
+        status: "Pending",
+        source: "voice_call",
+      },
+    ]);
+    if (error) console.error("Failed to save voice ticket:", error);
+    else if (onTicketCreated) onTicketCreated();
+  };
 
   const conversation = useConversation({
     onConnect: () => {
@@ -37,7 +71,9 @@ export function VoiceCallModal({
     },
     onMessage: (msg: any) => {
       if (msg.message) {
-        setTranscriptLog((prev) => [...prev, { role: msg.source || "agent", message: msg.message }]);
+        const entry = { role: msg.source || "agent", message: msg.message };
+        transcriptRef.current = [...transcriptRef.current, entry];
+        setTranscriptLog(transcriptRef.current);
       }
     },
     onError: (err: any) => {
@@ -54,6 +90,9 @@ export function VoiceCallModal({
   const handleStartCall = useCallback(async () => {
     try {
       setErrorMsg(null);
+      transcriptRef.current = [];
+      savedRef.current = false;
+      setTranscriptLog([]);
       await navigator.mediaDevices.getUserMedia({ audio: true });
       await conversation.startSession({
         agentId: agentId,
@@ -68,165 +107,123 @@ export function VoiceCallModal({
     }
   }, [conversation, agentId, propertyName, unitNumber]);
 
-  // End Call
+  // End Call (onDisconnect saves the ticket)
   const handleEndCall = useCallback(async () => {
     await conversation.endSession();
-    handleCallEndSync();
   }, [conversation]);
-
-  // Sync ticket to Supabase when call ends
-  const handleCallEndSync = async () => {
-    if (transcriptLog.length > 0 && supabase) {
-      try {
-        await supabase.from("tickets").insert([
-          {
-            property_id: propertyId,
-            unit_number: unitNumber,
-            title: "Voice Call Inquiry",
-            description: transcriptLog.map((t) => `${t.role}: ${t.message}`).join("\n"),
-            category: "Other",
-            severity: "Medium",
-            status: "Pending",
-            source: "voice_call",
-          },
-        ]);
-        if (onTicketCreated) onTicketCreated();
-      } catch (e) {
-        console.error("Failed to save voice ticket:", e);
-      }
-    }
-  };
 
   if (!isOpen) return null;
 
+  const statusText = isConnected
+    ? isSpeaking
+      ? "Speaking"
+      : "Listening"
+    : isConnecting
+    ? "Connecting"
+    : "Ready";
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-      <div className="relative w-full max-w-md overflow-hidden rounded-3xl bg-white p-6 shadow-2xl border border-slate-100 flex flex-col items-center text-center">
-        {/* Header */}
-        <div className="flex items-center gap-2 mb-1">
-          <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
-          <p className="text-xs font-semibold uppercase tracking-wider text-blue-600">
-            {propertyName} AI Voice Line
-          </p>
-        </div>
-        <h3 className="text-xl font-bold text-slate-900">Maintenance Triage Agent</h3>
-        <p className="text-xs text-slate-500 mt-0.5">
-          {isConnected
-            ? isSpeaking
-              ? "Agent is speaking..."
-              : "Listening to you..."
-            : isConnecting
-            ? "Connecting voice channel..."
-            : "Click below to begin web voice call"}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4 backdrop-blur-sm animate-fade-in">
+      <div className="relative flex w-full max-w-sm flex-col items-center overflow-hidden rounded-3xl bg-white p-8 text-center shadow-lift animate-pop-in">
+        <button
+          onClick={() => {
+            if (isConnected) handleEndCall();
+            onClose();
+          }}
+          className="btn btn-ghost btn-icon absolute right-3 top-3 h-8 w-8"
+          aria-label="Close"
+        >
+          <X className="h-4 w-4" />
+        </button>
+
+        <p className="eyebrow">{propertyName}</p>
+        <h3 className="mt-2 text-xl font-semibold tracking-tight">Maintenance line</h3>
+        <p className="mt-1 flex items-center gap-1.5 text-xs text-ink-muted">
+          <span
+            className={`h-1.5 w-1.5 rounded-full ${
+              isConnected ? "bg-brand-500 animate-pulse" : isConnecting ? "bg-brand-300 animate-pulse" : "bg-ink-subtle"
+            }`}
+          />
+          {statusText}
         </p>
 
-        {/* Visualizer Orb (Matches design & ElevenLabs style) */}
-        <div className="my-8 relative flex items-center justify-center">
-          {/* Animated Glow Rings */}
+        {/* Orb */}
+        <div className="relative my-10 flex items-center justify-center">
           <div
-            className={`absolute h-48 w-48 rounded-full transition-all duration-700 ${
-              isSpeaking
-                ? "bg-blue-400/20 scale-125 animate-pulse-slow"
-                : isConnected
-                ? "bg-sky-300/15 scale-105"
-                : "bg-slate-100 scale-95"
+            className={`absolute h-44 w-44 rounded-full transition-all duration-700 ${
+              isSpeaking ? "scale-125 bg-brand-400/20 animate-pulse-slow" : isConnected ? "scale-105 bg-brand-300/15" : "scale-95 bg-brand-50"
             }`}
           />
           <div
-            className={`absolute h-40 w-40 rounded-full transition-all duration-500 ${
-              isSpeaking
-                ? "bg-blue-500/25 scale-110"
-                : isConnected
-                ? "bg-sky-400/20 scale-100"
-                : "bg-slate-200/50"
+            className={`absolute h-36 w-36 rounded-full transition-all duration-500 ${
+              isSpeaking ? "scale-110 bg-brand-500/20" : isConnected ? "bg-brand-400/15" : "bg-brand-100/60"
             }`}
           />
-
-          {/* Core Orb */}
           <div
-            className={`relative flex h-32 w-32 items-center justify-center rounded-full shadow-xl transition-all duration-500 ${
-              isSpeaking
-                ? "bg-gradient-to-tr from-blue-600 via-sky-500 to-indigo-500 shadow-blue-500/40 scale-105"
-                : isConnected
-                ? "bg-gradient-to-tr from-blue-500 to-cyan-400 shadow-sky-500/30"
-                : "bg-gradient-to-tr from-slate-200 to-slate-300 shadow-slate-300"
-            }`}
+            className={`relative flex h-28 w-28 items-center justify-center rounded-full transition-all duration-500 ${
+              isConnected
+                ? "bg-gradient-to-br from-brand-500 to-brand-700 shadow-lift"
+                : "bg-gradient-to-br from-brand-100 to-brand-200"
+            } ${isSpeaking ? "scale-105" : ""}`}
           >
             {isSpeaking ? (
               <div className="flex items-center gap-1">
-                <span className="h-6 w-1 rounded-full bg-white animate-bounce" style={{ animationDelay: "0ms" }} />
-                <span className="h-10 w-1 rounded-full bg-white animate-bounce" style={{ animationDelay: "150ms" }} />
-                <span className="h-7 w-1 rounded-full bg-white animate-bounce" style={{ animationDelay: "300ms" }} />
-                <span className="h-4 w-1 rounded-full bg-white animate-bounce" style={{ animationDelay: "450ms" }} />
+                {[
+                  ["h-6", "0ms"],
+                  ["h-10", "150ms"],
+                  ["h-7", "300ms"],
+                  ["h-4", "450ms"],
+                ].map(([h, delay]) => (
+                  <span
+                    key={delay}
+                    className={`${h} w-1 rounded-full bg-white animate-bounce`}
+                    style={{ animationDelay: delay }}
+                  />
+                ))}
               </div>
             ) : isConnected ? (
-              <Mic className="h-10 w-10 text-white animate-pulse" />
+              <Mic className="h-9 w-9 text-white" />
             ) : (
-              <Volume2 className="h-10 w-10 text-slate-500" />
+              <Volume2 className="h-9 w-9 text-brand-600" />
             )}
           </div>
         </div>
 
-        {/* Error notification if any */}
         {errorMsg && (
-          <div className="mb-4 flex items-center gap-2 rounded-xl bg-rose-50 p-2.5 text-xs text-rose-700 border border-rose-200">
+          <div className="mb-4 flex w-full items-center gap-2 rounded-xl bg-red-50 p-3 text-left text-xs text-red-700">
             <AlertCircle className="h-4 w-4 flex-shrink-0" />
-            <p className="text-left">{errorMsg}</p>
+            <p>{errorMsg}</p>
           </div>
         )}
 
-        {/* Live Conversation Snippet */}
         {transcriptLog.length > 0 && (
-          <div className="w-full max-h-24 overflow-y-auto mb-4 rounded-xl bg-slate-50 p-2.5 text-left text-xs text-slate-600 border border-slate-100">
-            <p className="font-semibold text-[10px] uppercase tracking-wider text-slate-400 mb-1">Live Transcript</p>
-            <p className="italic">"{transcriptLog[transcriptLog.length - 1]?.message}"</p>
-          </div>
+          <p className="mb-6 line-clamp-2 text-sm italic text-ink-muted">
+            &ldquo;{transcriptLog[transcriptLog.length - 1]?.message}&rdquo;
+          </p>
         )}
 
-        {/* Action Controls */}
-        <div className="flex items-center gap-4">
-          {!isConnected && !isConnecting ? (
-            <button
-              onClick={handleStartCall}
-              className="flex items-center gap-2 rounded-full bg-blue-600 px-6 py-3.5 text-sm font-semibold text-white shadow-lg shadow-blue-500/25 hover:bg-blue-700 active:scale-95 transition"
-            >
-              <Sparkles className="h-4 w-4" />
-              <span>Connect Voice Agent</span>
-            </button>
-          ) : (
-            <>
-              <button
-                onClick={() => setIsMuted(!isMuted)}
-                className={`flex h-12 w-12 items-center justify-center rounded-full border transition ${
-                  isMuted
-                    ? "bg-amber-100 text-amber-700 border-amber-300"
-                    : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200"
-                }`}
-                title={isMuted ? "Unmute Mic" : "Mute Mic"}
-              >
-                {isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
-              </button>
-
-              <button
-                onClick={handleEndCall}
-                className="flex items-center gap-2 rounded-full bg-rose-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-rose-500/25 hover:bg-rose-700 active:scale-95 transition"
-              >
-                <PhoneOff className="h-4 w-4" />
-                <span>End Call</span>
-              </button>
-            </>
-          )}
-
-          <button
-            onClick={() => {
-              if (isConnected) handleEndCall();
-              onClose();
-            }}
-            className="text-xs text-slate-400 hover:text-slate-600 font-medium ml-2"
-          >
-            Close
+        {/* Controls */}
+        {!isConnected && !isConnecting ? (
+          <button onClick={handleStartCall} className="btn btn-primary h-12 px-8">
+            <PhoneCall className="h-4 w-4" />
+            Start call
           </button>
-        </div>
+        ) : (
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setIsMuted(!isMuted)}
+              className={`btn btn-icon h-12 w-12 ${isMuted ? "bg-brand-100 text-brand-700" : "btn-secondary"}`}
+              title={isMuted ? "Unmute" : "Mute"}
+            >
+              {isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+            </button>
+
+            <button onClick={handleEndCall} className="btn btn-danger h-12 px-6">
+              <PhoneOff className="h-4 w-4" />
+              End
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

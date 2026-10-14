@@ -1,38 +1,54 @@
 import { NextResponse } from "next/server";
-import { supabase, isSupabaseConfigured, MOCK_TICKETS } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/server";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
+
+// Authenticated ticket API. RLS scopes results to the caller:
+// companies see their properties' tickets, tenants see their own.
+
+async function getClient() {
+  if (!isSupabaseConfigured) return { supabase: null, user: null };
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  return { supabase, user };
+}
 
 export async function GET() {
-  if (supabase) {
-    try {
-      const { data, error } = await supabase
-        .from("tickets")
-        .select("*")
-        .order("created_at", { ascending: false });
+  const { supabase, user } = await getClient();
+  if (!supabase || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-      if (error) {
-        console.error("Supabase tickets GET error:", error);
-        return NextResponse.json(MOCK_TICKETS);
-      }
-      return NextResponse.json(data);
-    } catch (e) {
-      console.error("Tickets API error:", e);
-      return NextResponse.json(MOCK_TICKETS);
-    }
-  }
-
-  return NextResponse.json(MOCK_TICKETS);
+  const { data, error } = await supabase.from("tickets").select("*").order("created_at", { ascending: false });
+  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  return NextResponse.json(data);
 }
 
 export async function POST(req: Request) {
-  try {
-    const body = await req.json();
-    const { property_id, unit_number, title, description, category, severity, source } = body;
+  const { supabase, user } = await getClient();
+  if (!supabase || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    if (supabase) {
-      const { data, error } = await supabase.from("tickets").insert([
+  try {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role, property_id, unit_number, full_name, phone")
+      .eq("id", user.id)
+      .single();
+
+    if (profile?.role !== "tenant" || !profile.property_id) {
+      return NextResponse.json({ error: "Only tenants can create tickets" }, { status: 403 });
+    }
+
+    const { title, description, category, severity, source } = await req.json();
+
+    const { data, error } = await supabase
+      .from("tickets")
+      .insert([
         {
-          property_id,
-          unit_number: unit_number || "Unit 304",
+          property_id: profile.property_id,
+          tenant_id: user.id,
+          tenant_name: profile.full_name,
+          tenant_phone: profile.phone,
+          unit_number: profile.unit_number || "Unknown",
           title: title || "Maintenance Request",
           description: description || "",
           category: category || "Other",
@@ -40,28 +56,11 @@ export async function POST(req: Request) {
           status: "Pending",
           source: source || "chat",
         },
-      ]).select();
+      ])
+      .select();
 
-      if (error) {
-        console.error("Supabase tickets POST error:", error);
-        return NextResponse.json({ success: false, error: error.message }, { status: 400 });
-      }
-
-      return NextResponse.json({ success: true, ticket: data?.[0] });
-    }
-
-    return NextResponse.json({
-      success: true,
-      ticket: {
-        id: `mock-${Date.now()}`,
-        title,
-        description,
-        category,
-        severity,
-        status: "Pending",
-        created_at: new Date().toISOString(),
-      },
-    });
+    if (error) return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+    return NextResponse.json({ success: true, ticket: data?.[0] });
   } catch (err: any) {
     console.error("Failed to create ticket:", err);
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });

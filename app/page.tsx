@@ -1,170 +1,169 @@
 import Link from "next/link";
-import { 
-  Building2, 
-  Sparkles, 
-  PhoneCall, 
-  ArrowRight, 
-  ShieldCheck, 
-  Clock, 
-  Users, 
-  FileText, 
-  Sliders, 
-  CheckCircle2, 
-  Wrench,
-  Bot
+import {
+  ArrowRight,
+  AudioLines,
+  BookOpenCheck,
+  FileText,
+  LayoutList,
+  Link2,
+  MessageSquare,
+  PhoneCall,
+  Siren,
 } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
+import { TicketStatusCard } from "@/components/TicketStatusCard";
+import { MOCK_TICKETS } from "@/lib/mock";
+import { MarketingFooter } from "@/components/marketing/MarketingFooter";
+import { CtaBand } from "@/components/marketing/Sections";
+
+const STATS = [
+  { value: "24/7", label: "Always on" },
+  { value: "70%", label: "Solved on the call" },
+  { value: "0", label: "Manual intake" },
+];
+
+const FEATURES = [
+  { icon: AudioLines, title: "Voice triage", body: "Tenants call. The agent asks the right questions." },
+  { icon: BookOpenCheck, title: "Guided fixes", body: "Answers from your own manuals and SOPs." },
+  { icon: Siren, title: "Emergency escalation", body: "Gas, fire, flooding go straight to your on-call line." },
+  { icon: LayoutList, title: "One dispatch board", body: "Every request, every property, live." },
+];
+
+const STEPS = [
+  { icon: FileText, title: "Upload SOPs", body: "Manuals and guides." },
+  { icon: AudioLines, title: "Pick a voice", body: "Tone, language, escalation." },
+  { icon: Link2, title: "Share the link", body: "Tenants join, then call or chat." },
+];
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div className="flex min-h-screen flex-col">
       <Navbar />
 
-      {/* Hero Section (Matches Real Estate Company Flow Step 1) */}
-      <section className="relative overflow-hidden pt-12 pb-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full text-center">
-        {/* Glow backdrop */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] bg-blue-400/10 blur-[120px] rounded-full -z-10 pointer-events-none" />
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 sm:px-6">
+        {/* Hero */}
+        <section className="relative grid items-center gap-12 py-16 sm:py-24 lg:grid-cols-[1.1fr_1fr]">
+          <div className="pointer-events-none absolute -top-24 left-1/2 -z-10 h-[420px] w-[720px] -translate-x-1/2 rounded-full bg-brand-400/15 blur-[120px]" />
 
-        <div className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3.5 py-1 text-xs font-semibold text-blue-700 border border-blue-200/80 mb-6 shadow-sm">
-          <Sparkles className="h-3.5 w-3.5 text-blue-600" />
-          <span>Real Estate Maintenance AI Agent</span>
-        </div>
+          <div>
+            <p className="eyebrow">For property management companies</p>
+            <h1 className="mt-4 text-5xl font-semibold leading-[1.05] tracking-tight sm:text-6xl">
+              Maintenance,
+              <br />
+              <span className="text-brand-600">handled.</span>
+            </h1>
+            <p className="mt-5 max-w-md text-lg text-ink-muted">
+              An AI agent that answers every tenant call, guides simple fixes, and dispatches the rest.
+            </p>
 
-        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-slate-900 max-w-3xl mx-auto leading-tight">
-          Handle tenant queries & maintenance <span className="text-blue-600 underline decoration-blue-200 underline-offset-8">24/7 automatically</span>.
-        </h1>
-
-        <p className="mt-5 text-base sm:text-lg text-slate-600 max-w-2xl mx-auto leading-relaxed">
-          Set up your property maintenance agent in minutes. Tenants get instant voice triage, guided self-resolution for minor fixes, and automatic dispatch.
-        </p>
-
-        {/* CTA Buttons */}
-        <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
-          <Link
-            href="/admin"
-            className="flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl bg-blue-600 px-7 py-3.5 text-sm font-semibold text-white shadow-lg shadow-blue-500/25 hover:bg-blue-700 active:scale-95 transition"
-          >
-            <span>Open Company Dashboard</span>
-            <ArrowRight className="h-4 w-4" />
-          </Link>
-
-          <Link
-            href="/p/sunset-heights"
-            className="flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl bg-white px-6 py-3.5 text-sm font-semibold text-slate-700 border border-slate-200 hover:bg-slate-50 hover:text-slate-900 shadow-sm transition"
-          >
-            <PhoneCall className="h-4 w-4 text-blue-600" />
-            <span>Try Live Tenant Voice Call</span>
-          </Link>
-        </div>
-
-        {/* Value Props Row (Matches Design Middle Banner) */}
-        <div className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto">
-          <div className="flex items-center gap-2.5 rounded-2xl bg-white p-3.5 border border-slate-200/80 shadow-sm text-left">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-600 flex-shrink-0">
-              <Bot className="h-5 w-5" />
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <Link href="/signup" className="btn btn-primary h-11 px-6">
+                Get started
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+              <Link href="/how-it-works" className="btn btn-secondary h-11 px-6">
+                How it works
+              </Link>
             </div>
+          </div>
+
+          {/* Product preview */}
+          <div className="card p-2 shadow-lift">
+            <div className="flex items-center justify-between px-3 pb-2 pt-2.5">
+              <p className="text-sm font-medium">Live requests</p>
+              <span className="flex items-center gap-1.5 text-xs text-ink-subtle">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-brand-500" /> Synced
+              </span>
+            </div>
+            {MOCK_TICKETS.slice(0, 4).map((t) => (
+              <TicketStatusCard key={t.id} ticket={t} />
+            ))}
+          </div>
+        </section>
+
+        {/* Stats */}
+        <section className="grid grid-cols-3 divide-x divide-line border-y border-line py-8">
+          {STATS.map((s) => (
+            <div key={s.label} className="text-center">
+              <p className="text-3xl font-semibold tracking-tight text-brand-600 sm:text-4xl">{s.value}</p>
+              <p className="mt-1 text-xs text-ink-muted sm:text-sm">{s.label}</p>
+            </div>
+          ))}
+        </section>
+
+        {/* Features */}
+        <section id="features" className="scroll-mt-20 py-20">
+          <p className="eyebrow text-center">Features</p>
+          <h2 className="mt-3 text-center text-3xl font-semibold tracking-tight">Less phone tag. Fewer truck rolls.</h2>
+
+          <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {FEATURES.map((f) => (
+              <div key={f.title} className="card p-6">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
+                  <f.icon className="h-5 w-5" />
+                </div>
+                <h3 className="mt-6 font-medium">{f.title}</h3>
+                <p className="mt-1 text-sm text-ink-muted">{f.body}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* How it works */}
+        <section id="how" className="scroll-mt-20 pb-20">
+          <p className="eyebrow text-center">How it works</p>
+          <h2 className="mt-3 text-center text-3xl font-semibold tracking-tight">Live in minutes.</h2>
+
+          <div className="mt-12 grid gap-4 sm:grid-cols-3">
+            {STEPS.map((step, i) => (
+              <div key={step.title} className="card p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
+                    <step.icon className="h-5 w-5" />
+                  </div>
+                  <span className="text-xs font-medium text-ink-subtle">0{i + 1}</span>
+                </div>
+                <h3 className="mt-6 font-medium">{step.title}</h3>
+                <p className="mt-1 text-sm text-ink-muted">{step.body}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Tenant experience */}
+        <section id="tenants" className="scroll-mt-20 pb-20">
+          <div className="card grid items-center gap-10 overflow-hidden p-8 sm:p-12 lg:grid-cols-2">
             <div>
-              <p className="text-xs font-bold text-slate-900">Automates Triage</p>
-              <p className="text-[10px] text-slate-500">Zero manual call intake</p>
+              <p className="eyebrow">For your tenants</p>
+              <h2 className="mt-3 text-3xl font-semibold tracking-tight">One link. Call or chat.</h2>
+              <p className="mt-3 max-w-sm text-ink-muted">
+                Tenants join with your property link and track every request in real time.
+              </p>
             </div>
-          </div>
 
-          <div className="flex items-center gap-2.5 rounded-2xl bg-white p-3.5 border border-slate-200/80 shadow-sm text-left">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 flex-shrink-0">
-              <Clock className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-slate-900">Saves Team Time</p>
-              <p className="text-[10px] text-slate-500">70% solved on call</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2.5 rounded-2xl bg-white p-3.5 border border-slate-200/80 shadow-sm text-left">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-50 text-purple-600 flex-shrink-0">
-              <ShieldCheck className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-slate-900">24/7 Emergency</p>
-              <p className="text-[10px] text-slate-500">Instant safety protocols</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2.5 rounded-2xl bg-white p-3.5 border border-slate-200/80 shadow-sm text-left">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-50 text-sky-600 flex-shrink-0">
-              <Users className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-slate-900">Satisfied Tenants</p>
-              <p className="text-[10px] text-slate-500">Real-time status updates</p>
-            </div>
-          </div>
-        </div>
-
-        {/* 5-Step Company Flow Visualizer (Exact breakdown from Design image) */}
-        <div className="mt-20 text-left">
-          <div className="text-center mb-10">
-            <h2 className="text-2xl font-bold text-slate-900">How Upkeep Works for Real Estate Companies</h2>
-            <p className="text-sm text-slate-500 mt-1">Set up your maintenance agent in minutes and let it handle tenant queries 24/7.</p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-            {/* Step 1 */}
-            <div className="rounded-2xl bg-white p-5 border border-slate-200/90 shadow-sm flex flex-col justify-between">
-              <div>
-                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-600 text-white text-xs font-bold mb-3">1</span>
-                <h3 className="text-sm font-bold text-slate-900">Visit Homepage</h3>
-                <p className="mt-1.5 text-xs text-slate-500 leading-relaxed">
-                  Learn about features and how Upkeep automates maintenance requests.
-                </p>
+            {/* Mini tenant portal mock */}
+            <div className="mx-auto w-full max-w-sm space-y-3 rounded-3xl bg-surface p-4">
+              <div className="grid grid-cols-2 gap-2">
+                <div className="flex flex-col gap-4 rounded-2xl bg-brand-600 p-4 text-white">
+                  <PhoneCall className="h-5 w-5" />
+                  <p className="text-sm font-medium">Call</p>
+                </div>
+                <div className="flex flex-col gap-4 rounded-2xl border border-line bg-white p-4">
+                  <MessageSquare className="h-5 w-5 text-brand-600" />
+                  <p className="text-sm font-medium">Chat</p>
+                </div>
               </div>
-            </div>
-
-            {/* Step 2 */}
-            <div className="rounded-2xl bg-white p-5 border border-slate-200/90 shadow-sm flex flex-col justify-between">
-              <div>
-                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-600 text-white text-xs font-bold mb-3">2</span>
-                <h3 className="text-sm font-bold text-slate-900">Easy Signup</h3>
-                <p className="mt-1.5 text-xs text-slate-500 leading-relaxed">
-                  Create your company account in just a few steps. No complex setup.
-                </p>
-              </div>
-            </div>
-
-            {/* Step 3 */}
-            <div className="rounded-2xl bg-white p-5 border border-blue-200 shadow-sm bg-gradient-to-b from-white to-blue-50/30 flex flex-col justify-between">
-              <div>
-                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-600 text-white text-xs font-bold mb-3">3</span>
-                <h3 className="text-sm font-bold text-slate-900">Set Up Agent</h3>
-                <p className="mt-1.5 text-xs text-slate-500 leading-relaxed">
-                  Upload maintenance SOPs and customize voice, tone, and emergency contacts.
-                </p>
-              </div>
-            </div>
-
-            {/* Step 4 */}
-            <div className="rounded-2xl bg-white p-5 border border-slate-200/90 shadow-sm flex flex-col justify-between">
-              <div>
-                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-600 text-white text-xs font-bold mb-3">4</span>
-                <h3 className="text-sm font-bold text-slate-900">Publish & Go Live</h3>
-                <p className="mt-1.5 text-xs text-slate-500 leading-relaxed">
-                  Review settings and get your custom public tenant link ready to share.
-                </p>
-              </div>
-            </div>
-
-            {/* Step 5 */}
-            <div className="rounded-2xl bg-white p-5 border border-slate-200/90 shadow-sm flex flex-col justify-between">
-              <div>
-                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-600 text-white text-xs font-bold mb-3">5</span>
-                <h3 className="text-sm font-bold text-slate-900">Use the Agent</h3>
-                <p className="mt-1.5 text-xs text-slate-500 leading-relaxed">
-                  Tenants make web voice calls or chat. Tickets populate in your dashboard.
-                </p>
+              <div className="rounded-2xl border border-line bg-white p-1">
+                <TicketStatusCard ticket={MOCK_TICKETS[0]} />
               </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+
+        <CtaBand />
+      </main>
+
+      <MarketingFooter />
     </div>
   );
 }
