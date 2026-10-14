@@ -13,7 +13,8 @@ import {
   ArrowLeft,
   Copy,
   ExternalLink,
-  Volume2
+  Volume2,
+  Trash2
 } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
 
@@ -41,6 +42,10 @@ export default function AgentSetupPage() {
     if (e.target.files && e.target.files[0]) {
       setUploadedFiles((prev) => [...prev, e.target.files![0].name]);
     }
+  };
+
+  const handleDeleteFile = (indexToRemove: number) => {
+    setUploadedFiles((prev) => prev.filter((_, idx) => idx !== indexToRemove));
   };
 
   return (
@@ -92,14 +97,24 @@ export default function AgentSetupPage() {
               {/* File list */}
               <div className="mt-4 space-y-2">
                 {uploadedFiles.map((file, i) => (
-                  <div key={i} className="flex items-center justify-between rounded-xl bg-slate-50 px-3.5 py-2 text-xs border border-slate-200/60">
-                    <div className="flex items-center gap-2">
-                      <FileText className="h-4 w-4 text-blue-600" />
-                      <span className="font-medium text-slate-800">{file}</span>
+                  <div key={i} className="flex items-center justify-between rounded-xl bg-slate-50 px-3.5 py-2 text-xs border border-slate-200/60 hover:border-slate-300 transition">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <FileText className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                      <span className="font-medium text-slate-800 truncate">{file}</span>
                     </div>
-                    <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                      Vectorized
-                    </span>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                        Vectorized
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteFile(i)}
+                        className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                        title="Delete file"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
