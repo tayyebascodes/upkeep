@@ -1,19 +1,21 @@
 "use client";
 
-import { useState } from "react";
-import { Send, Bot, AlertTriangle, X } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { useState, useRef, useEffect } from "react";
+import { Send, Bot, AlertTriangle, CheckCircle2, X, Search, Wrench } from "lucide-react";
+import { Ticket } from "@/lib/types";
 
 interface ChatDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   propertyName: string;
-  propertyId: string;
   unitNumber: string;
-  tenantId: string;
+  onTicketCreated?: () => void;
+  // Tenant/property identity is resolved server-side from the session;
+  // these are accepted for parity with VoiceCallModal.
+  propertyId?: string;
+  tenantId?: string;
   tenantName?: string;
   tenantPhone?: string;
-  onTicketCreated?: () => void;
 }
 
 interface Message {
@@ -21,30 +23,40 @@ interface Message {
   sender: "user" | "bot";
   text: string;
   timestamp: string;
+  ticketBadge?: Ticket;
 }
 
-export function ChatDrawer({
-  isOpen,
-  onClose,
-  propertyName,
-  propertyId,
-  unitNumber,
-  tenantId,
-  tenantName,
-  tenantPhone,
-  onTicketCreated,
-}: ChatDrawerProps) {
+type TriageStage = "diagnosing" | "troubleshooting" | "dispatched";
+
+const STAGES: Record<TriageStage, { label: string; icon: typeof Search; style: string }> = {
+  diagnosing: { label: "Diagnosing", icon: Search, style: "bg-brand-50 text-brand-700" },
+  troubleshooting: { label: "Troubleshooting", icon: Wrench, style: "bg-brand-100 text-brand-800" },
+  dispatched: { label: "Ticket filed", icon: CheckCircle2, style: "bg-brand-600 text-white" },
+};
+
+// Instant client-side safety banner; the agent also handles emergencies in its reply.
+const EMERGENCY_WORDS = ["gas", "smoke", "fire", "spark", "flooding", "burst pipe"];
+
+const now = () => new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+export function ChatDrawer({ isOpen, onClose, propertyName, unitNumber, onTicketCreated }: ChatDrawerProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
-      id: "1",
+      id: "init",
       sender: "bot",
-      text: `Hi! I'm your maintenance assistant for ${propertyName}. What seems to be the issue in your unit?`,
-      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      text: `Hi! I'm Upkeep, the maintenance assistant for ${propertyName}. What's going on in ${unitNumber || "your unit"}?`,
+      timestamp: now(),
     },
   ]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [hasEmergency, setHasEmergency] = useState(false);
+  const [triageStage, setTriageStage] = useState<TriageStage>("diagnosing");
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, isTyping]);
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,90 +65,61 @@ export function ChatDrawer({
     const userText = input.trim();
     setInput("");
 
-    const newMsg: Message = {
-      id: Date.now().toString(),
-      sender: "user",
-      text: userText,
-      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-    };
+    if (EMERGENCY_WORDS.some((w) => userText.toLowerCase().includes(w))) setHasEmergency(true);
 
-    setMessages((prev) => [...prev, newMsg]);
+    const userMsg: Message = { id: `user-${Date.now()}`, sender: "user", text: userText, timestamp: now() };
+    const updatedMessages = [...messages, userMsg];
+    setMessages(updatedMessages);
     setIsTyping(true);
 
-    // Emergency Detection Filter
-    const lower = userText.toLowerCase();
-    const isEmergency =
-      lower.includes("gas") ||
-      lower.includes("smoke") ||
-      lower.includes("fire") ||
-      lower.includes("spark") ||
-      lower.includes("flooding") ||
-      lower.includes("burst pipe");
+    try {
+      // Multi-turn AI triage. The server files a ticket once the issue is diagnosed.
+      const res = await fetch("/api/triage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: updatedMessages.map(({ sender, text }) => ({ sender, text })),
+        }),
+      });
+      const data = await res.json();
 
-    if (isEmergency) {
-      setHasEmergency(true);
-    }
-
-    setTimeout(async () => {
-      let botResponse = "";
-
-      if (isEmergency) {
-        botResponse =
-          "🚨 CRITICAL EMERGENCY DETECTED: If you smell natural gas, see flames, or have high electrical sparks, please EVACUATE the building immediately and call 911! I am alerting property emergency dispatch now.";
-      } else if (lower.includes("outlet") || lower.includes("power") || lower.includes("electricity")) {
-        botResponse =
-          "I can help with that! In bathroom and kitchen areas, outlets often trip their safety breakers. Have you tried pressing the center 'RESET' button on the outlet? If that doesn't work, I'll log a ticket for our electrician.";
-      } else if (lower.includes("leak") || lower.includes("water") || lower.includes("faucet") || lower.includes("toilet")) {
-        botResponse =
-          "Got it. Is the water actively gushing or just a slow drip? If there is a shutoff valve underneath, turn it clockwise to prevent damage. I am logging a Plumbing ticket for your unit right now.";
-      } else if (lower.includes("ac") || lower.includes("heat") || lower.includes("cold") || lower.includes("warm")) {
-        botResponse =
-          "Thanks for letting me know. Is the thermostat screen showing power, and is the fan blowing at all? I'm drafting an HVAC maintenance request for you.";
-      } else {
-        botResponse =
-          "Thank you for reporting this. I've noted down the details and created an official maintenance ticket for your property management team.";
+      const createdTicket: Ticket | undefined = data.createdTicket ?? undefined;
+      if (createdTicket) {
+        setTriageStage("dispatched");
+        onTicketCreated?.();
+      } else if (triageStage !== "dispatched") {
+        setTriageStage("troubleshooting");
       }
 
-      const botMsg: Message = {
-        id: (Date.now() + 1).toString(),
-        sender: "bot",
-        text: botResponse,
-        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      };
-
-      setMessages((prev) => [...prev, botMsg]);
-      setIsTyping(false);
-
-      // Save ticket to Supabase (RLS: tenant_id must be the signed-in tenant)
-      const category = lower.includes("leak") || lower.includes("sink") || lower.includes("pipe")
-        ? "Plumbing"
-        : lower.includes("outlet") || lower.includes("light")
-        ? "Electrical"
-        : lower.includes("ac") || lower.includes("heat")
-        ? "HVAC"
-        : "Other";
-
-      const { error } = await createClient().from("tickets").insert([
+      setMessages((prev) => [
+        ...prev,
         {
-          property_id: propertyId,
-          tenant_id: tenantId,
-          tenant_name: tenantName,
-          tenant_phone: tenantPhone,
-          unit_number: unitNumber,
-          title: userText.slice(0, 40),
-          description: userText,
-          category: category,
-          severity: isEmergency ? "Emergency" : "Medium",
-          status: "Pending",
-          source: "chat",
+          id: `bot-${Date.now()}`,
+          sender: "bot",
+          text: data.reply || "Could you share a few more details so I can narrow this down?",
+          timestamp: now(),
+          ticketBadge: createdTicket,
         },
       ]);
-      if (error) console.error("Supabase ticket save error:", error);
-      else if (onTicketCreated) onTicketCreated();
-    }, 900);
+    } catch (err) {
+      console.error("Chat triage error:", err);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `bot-${Date.now()}`,
+          sender: "bot",
+          text: "Is it actively leaking, making loud noises, or an electrical hazard?",
+          timestamp: now(),
+        },
+      ]);
+    } finally {
+      setIsTyping(false);
+    }
   };
 
   if (!isOpen) return null;
+
+  const stage = STAGES[triageStage];
 
   return (
     <div
@@ -144,7 +127,7 @@ export function ChatDrawer({
       onClick={onClose}
     >
       <div
-        className="flex h-[85vh] w-full max-w-md flex-col overflow-hidden rounded-t-3xl bg-white shadow-lift animate-pop-in sm:h-[600px] sm:rounded-3xl"
+        className="flex h-[85vh] w-full max-w-md flex-col overflow-hidden rounded-t-3xl bg-white shadow-lift animate-pop-in sm:h-[620px] sm:rounded-3xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -155,7 +138,10 @@ export function ChatDrawer({
             </div>
             <div>
               <h3 className="text-sm font-medium">Maintenance</h3>
-              <p className="text-xs text-ink-subtle">{unitNumber}</p>
+              <span className={`badge mt-0.5 px-2 py-0 text-[11px] ${stage.style}`}>
+                <stage.icon className="h-3 w-3" />
+                {stage.label}
+              </span>
             </div>
           </div>
           <button onClick={onClose} className="btn btn-ghost btn-icon h-8 w-8" aria-label="Close">
@@ -174,7 +160,7 @@ export function ChatDrawer({
         {/* Messages List */}
         <div className="flex-1 space-y-3 overflow-y-auto bg-surface/60 p-4">
           {messages.map((m) => (
-            <div key={m.id} className={`flex ${m.sender === "user" ? "justify-end" : "justify-start"}`}>
+            <div key={m.id} className={`flex flex-col gap-2 ${m.sender === "user" ? "items-end" : "items-start"}`}>
               <div
                 className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
                   m.sender === "user"
@@ -182,7 +168,7 @@ export function ChatDrawer({
                     : "rounded-bl-md border border-line bg-white"
                 }`}
               >
-                <p>{m.text}</p>
+                <p className="whitespace-pre-wrap">{m.text}</p>
                 <span
                   className={`mt-1 block text-[10px] ${
                     m.sender === "user" ? "text-right text-brand-200" : "text-ink-subtle"
@@ -191,6 +177,24 @@ export function ChatDrawer({
                   {m.timestamp}
                 </span>
               </div>
+
+              {/* Inline ticket confirmation */}
+              {m.ticketBadge && (
+                <div className="w-[80%] rounded-2xl border border-brand-200 bg-brand-50 p-3.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="flex items-center gap-1.5 text-xs font-medium text-brand-800">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-brand-600" /> Ticket filed
+                    </span>
+                    <span className="badge bg-white px-2 py-0 text-[11px] text-brand-700">
+                      {m.ticketBadge.severity}
+                    </span>
+                  </div>
+                  <p className="mt-1.5 text-sm font-medium">{m.ticketBadge.title}</p>
+                  <p className="mt-0.5 text-xs text-ink-muted">
+                    {m.ticketBadge.category} · Track it in My requests
+                  </p>
+                </div>
+              )}
             </div>
           ))}
 
@@ -199,12 +203,13 @@ export function ChatDrawer({
               {[0, 150, 300].map((d) => (
                 <span
                   key={d}
-                  className="h-1.5 w-1.5 rounded-full bg-brand-400 animate-bounce"
+                  className="h-1.5 w-1.5 animate-bounce rounded-full bg-brand-400"
                   style={{ animationDelay: `${d}ms` }}
                 />
               ))}
             </div>
           )}
+          <div ref={messagesEndRef} />
         </div>
 
         {/* Message Input */}
@@ -216,7 +221,12 @@ export function ChatDrawer({
             placeholder="What's broken?"
             className="input rounded-full"
           />
-          <button type="submit" disabled={!input.trim()} className="btn btn-primary btn-icon flex-shrink-0">
+          <button
+            type="submit"
+            disabled={!input.trim() || isTyping}
+            className="btn btn-primary btn-icon flex-shrink-0"
+            aria-label="Send"
+          >
             <Send className="h-4 w-4" />
           </button>
         </form>
