@@ -4,16 +4,19 @@ import { createClient } from "@/lib/supabase/server";
 
 export async function POST(req: Request) {
   try {
-    // Identity comes from the session, never from the request body.
-    const { user, profile } = await getSession();
-    if (!user || profile?.role !== "tenant" || !profile.property_id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    const propertyId = profile.property_id;
-    const propertyName = profile.properties?.name;
-    const unitNumber = profile.unit_number;
+    const body = await req.json();
+    const { messages } = body;
 
-    const { messages } = await req.json();
+    // Prefer authenticated tenant identity from session, fall back to body for demo/preview
+    const { user, profile } = await getSession();
+    const isTenant = Boolean(user && profile?.role === "tenant" && profile?.property_id);
+
+    const propertyId = isTenant ? profile!.property_id! : body.propertyId || null;
+    const propertyName = isTenant ? profile!.properties?.name : body.propertyName || "the residential property";
+    const unitNumber = isTenant ? profile!.unit_number : body.unitNumber || "your unit";
+    const tenantId = isTenant ? user!.id : null;
+    const tenantName = isTenant ? profile!.full_name : null;
+    const tenantPhone = isTenant ? profile!.phone : null;
 
     const apiKey = process.env.GEMINI_API_KEY || process.env.XAI_API_KEY;
 
@@ -59,7 +62,7 @@ CONVERSATION GUIDELINES:
 Tone: Conversational, friendly, professional, concise (2 to 4 sentences per turn). Do not output huge walls of text.`;
 
     const response = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
       {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
@@ -70,7 +73,7 @@ Tone: Conversational, friendly, professional, concise (2 to 4 sentences per turn
           },
           generationConfig: {
             temperature: 0.4,
-            maxOutputTokens: 500,
+            maxOutputTokens: 1500,
           },
         }),
       }
@@ -91,21 +94,25 @@ Tone: Conversational, friendly, professional, concise (2 to 4 sentences per turn
     let cleanReply = rawReply;
     let createdTicket = null;
 
+    if (cleanReply.includes("[ACTION:CREATE_TICKET:")) {
+      const idx = cleanReply.indexOf("[ACTION:CREATE_TICKET:");
+      cleanReply = cleanReply.substring(0, idx).trim();
+    }
+
     const actionMatch = rawReply.match(/\[ACTION:CREATE_TICKET:(\{[\s\S]*?\})\]/);
     if (actionMatch) {
       try {
         const ticketData = JSON.parse(actionMatch[1]);
-        cleanReply = rawReply.replace(actionMatch[0], "").trim();
 
-        // Save to Supabase as the signed-in tenant (RLS enforced)
-        {
+        // Save to Supabase if signed-in tenant, or return demo ticket object
+        if (propertyId && isTenant) {
           const supabase = await createClient();
           const { data: inserted, error: insertError } = await supabase.from("tickets").insert([
             {
               property_id: propertyId,
-              tenant_id: user.id,
-              tenant_name: profile.full_name,
-              tenant_phone: profile.phone,
+              tenant_id: tenantId,
+              tenant_name: tenantName,
+              tenant_phone: tenantPhone,
               unit_number: unitNumber || "Unknown",
               title: ticketData.title || "Maintenance Request",
               description: ticketData.summary || cleanReply,
@@ -120,6 +127,19 @@ Tone: Conversational, friendly, professional, concise (2 to 4 sentences per turn
           if (inserted && inserted[0]) {
             createdTicket = inserted[0];
           }
+        } else {
+          createdTicket = {
+            id: `demo-${Date.now()}`,
+            property_id: propertyId || "demo-property",
+            unit_number: unitNumber || "Unit 304",
+            title: ticketData.title || "Maintenance Request",
+            description: ticketData.summary || cleanReply,
+            category: ticketData.category || "Other",
+            severity: ticketData.severity || "Medium",
+            status: "Pending",
+            source: "chat",
+            created_at: new Date().toISOString(),
+          };
         }
       } catch (err) {
         console.error("Failed to parse ticket action:", err);
