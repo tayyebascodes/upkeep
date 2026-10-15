@@ -87,7 +87,8 @@ export function VoiceCallModal({
     },
     onError: (err: any) => {
       console.error("ElevenLabs error:", err);
-      setErrorMsg(typeof err === "string" ? err : "Microphone or connection error occurred.");
+      const msg = typeof err === "string" ? err : err?.message || "Microphone or connection error occurred.";
+      setErrorMsg(msg);
     },
   });
 
@@ -103,7 +104,7 @@ export function VoiceCallModal({
       savedRef.current = false;
       setTranscriptLog([]);
       await navigator.mediaDevices.getUserMedia({ audio: true });
-      await (conversation.startSession as any)({
+      await conversation.startSession({
         agentId: agentId,
         dynamicVariables: {
           company_name: propertyName,
@@ -112,15 +113,6 @@ export function VoiceCallModal({
           agent_tone: persona.toneName,
           agent_language: persona.language,
           emergency_phone: persona.emergencyContact || "",
-        },
-        overrides: {
-          tts: {
-            voiceId: persona.voiceId,
-          },
-          agent: {
-            language: persona.language === "Spanish" ? "es" : "en",
-            firstMessage: persona.greeting.replace("in your unit", `in ${unitNumber || "your unit"}`),
-          },
         },
       });
     } catch (err: any) {
