@@ -35,7 +35,22 @@ const STAGES: Record<TriageStage, { label: string; icon: typeof Search; style: s
 };
 
 // Instant client-side safety banner; the agent also handles emergencies in its reply.
-const EMERGENCY_WORDS = ["gas", "smoke", "fire", "spark", "flooding", "burst pipe"];
+function checkEmergency(text: string): boolean {
+  const lower = text.toLowerCase();
+  // Don't trigger emergency for routine smoke detector / alarm inquiries
+  if (
+    (lower.includes("smoke detector") || lower.includes("smoke alarm") || lower.includes("detect smoke")) &&
+    !lower.includes("heavy smoke") &&
+    !lower.includes("black smoke") &&
+    !lower.includes("smoke coming") &&
+    !lower.includes("room is full of smoke")
+  ) {
+    return false;
+  }
+
+  const EMERGENCY_WORDS = ["gas leak", "smell gas", "on fire", "sparks", "flooding", "burst pipe", "ceiling collapse"];
+  return EMERGENCY_WORDS.some((w) => lower.includes(w));
+}
 
 const now = () => new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
@@ -65,7 +80,7 @@ export function ChatDrawer({ isOpen, onClose, propertyName, unitNumber, onTicket
     const userText = input.trim();
     setInput("");
 
-    if (EMERGENCY_WORDS.some((w) => userText.toLowerCase().includes(w))) setHasEmergency(true);
+    if (checkEmergency(userText)) setHasEmergency(true);
 
     const userMsg: Message = { id: `user-${Date.now()}`, sender: "user", text: userText, timestamp: now() };
     const updatedMessages = [...messages, userMsg];
