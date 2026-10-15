@@ -177,6 +177,15 @@ Tone: Conversational, friendly, professional, concise (2 to 4 sentences per turn
       try {
         const ticketData = JSON.parse(actionMatch[1]);
 
+        const conversationTranscript = (messages || [])
+          .map((m: any) => `${m.sender === "user" ? "Tenant" : "AI Agent"}: ${m.text}`)
+          .concat(cleanReply ? [`AI Agent: ${cleanReply}`] : [])
+          .join("\n\n");
+
+        const fullDescription = ticketData.summary
+          ? `${ticketData.summary}\n\n--- Full Conversation ---\n${conversationTranscript}`
+          : conversationTranscript;
+
         if (propertyId && isTenant) {
           const supabase = await createClient();
           const { data: inserted, error: insertError } = await supabase.from("tickets").insert([
@@ -187,7 +196,7 @@ Tone: Conversational, friendly, professional, concise (2 to 4 sentences per turn
               tenant_phone: tenantPhone,
               unit_number: unitNumber || "Unknown",
               title: ticketData.title || "Maintenance Request",
-              description: ticketData.summary || cleanReply,
+              description: fullDescription,
               category: ticketData.category || "Other",
               severity: ticketData.severity || "Medium",
               status: "Pending",
@@ -205,7 +214,7 @@ Tone: Conversational, friendly, professional, concise (2 to 4 sentences per turn
             property_id: propertyId || "demo-property",
             unit_number: unitNumber || "Unit 304",
             title: ticketData.title || "Maintenance Request",
-            description: ticketData.summary || cleanReply,
+            description: fullDescription,
             category: ticketData.category || "Other",
             severity: ticketData.severity || "Medium",
             status: "Pending",

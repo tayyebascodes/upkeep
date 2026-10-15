@@ -1,3 +1,5 @@
+"use client";
+
 import { Ticket } from "@/lib/types";
 import { Wrench, Zap, Wind, Building, CircleHelp, PhoneCall, MessageSquare, Refrigerator, Trash2 } from "lucide-react";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -5,6 +7,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 interface TicketStatusCardProps {
   ticket: Ticket;
   onDelete?: (ticketId: string, title?: string) => void;
+  onView?: (ticket: Ticket) => void;
 }
 
 const CATEGORY_ICONS = {
@@ -23,12 +26,15 @@ const formatTimeAgo = (dateString: string) => {
   return `${Math.round(diffHours / 24)}d ago`;
 };
 
-export function TicketStatusCard({ ticket, onDelete }: TicketStatusCardProps) {
+export function TicketStatusCard({ ticket, onDelete, onView }: TicketStatusCardProps) {
   const Icon = CATEGORY_ICONS[ticket.category] ?? CircleHelp;
   const SourceIcon = ticket.source === "chat" ? MessageSquare : PhoneCall;
 
   return (
-    <div className="group flex items-center gap-3.5 rounded-xl p-3 transition hover:bg-brand-50/50">
+    <div 
+      onClick={() => onView && onView(ticket)}
+      className={`group flex items-center gap-3.5 rounded-xl p-3 transition hover:bg-brand-50/50 ${onView ? "cursor-pointer" : ""}`}
+    >
       <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
         <Icon className="h-[18px] w-[18px]" />
       </div>

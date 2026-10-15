@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { TicketStatusCard } from "@/components/TicketStatusCard";
 import { VoiceCallModal } from "@/components/VoiceCallModal";
 import { ChatDrawer } from "@/components/ChatDrawer";
+import { ConversationModal } from "@/components/ConversationModal";
 import type { Profile, Property, Ticket } from "@/lib/types";
 
 interface TenantHomeProps {
@@ -20,6 +21,7 @@ export function TenantHome({ profile, property, initialTickets }: TenantHomeProp
   const [activeTab, setActiveTab] = useState<"Active" | "Resolved" | "All">("Active");
   const [isVoiceOpen, setIsVoiceOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
 
   const fetchTickets = useCallback(async () => {
     const { data } = await supabase
@@ -136,7 +138,12 @@ export function TenantHome({ profile, property, initialTickets }: TenantHomeProp
 
         {filteredTickets.length > 0 ? (
           filteredTickets.map((ticket) => (
-            <TicketStatusCard key={ticket.id} ticket={ticket} onDelete={handleDeleteTicket} />
+            <TicketStatusCard 
+              key={ticket.id} 
+              ticket={ticket} 
+              onDelete={handleDeleteTicket}
+              onView={(t) => setSelectedTicket(t)}
+            />
           ))
         ) : (
           <p className="py-10 text-center text-sm text-ink-subtle">Nothing here.</p>
@@ -154,6 +161,17 @@ export function TenantHome({ profile, property, initialTickets }: TenantHomeProp
 
       <VoiceCallModal isOpen={isVoiceOpen} onClose={() => setIsVoiceOpen(false)} {...caller} />
       <ChatDrawer isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} {...caller} />
+
+      <ConversationModal
+        ticket={selectedTicket}
+        isOpen={Boolean(selectedTicket)}
+        onClose={() => setSelectedTicket(null)}
+        onDeleteTicket={(id, title) => {
+          handleDeleteTicket(id, title);
+          setSelectedTicket(null);
+        }}
+      />
     </div>
   );
 }
+

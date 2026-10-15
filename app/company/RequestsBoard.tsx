@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
-import { ArrowUpRight, Settings2, PhoneCall, MessageSquare, Search, RefreshCw, Trash2 } from "lucide-react";
+import { ArrowUpRight, Settings2, PhoneCall, MessageSquare, Search, RefreshCw, Trash2, Eye } from "lucide-react";
 import { SeverityBadge } from "@/components/StatusBadge";
 import { Select, type SelectOption } from "@/components/Select";
 import { PageHeader, EmptyState } from "@/components/PageHeader";
+import { ConversationModal } from "@/components/ConversationModal";
 import { createClient } from "@/lib/supabase/client";
 import { Property, Ticket, TicketStatus } from "@/lib/types";
 
@@ -35,6 +36,7 @@ export function RequestsBoard({ initialTickets, properties }: RequestsBoardProps
   const [propertyId, setPropertyId] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedTicket, setSelectedTicket] = useState<BoardTicket | null>(null);
 
   const fetchTickets = useCallback(async () => {
     setIsLoading(true);
@@ -220,8 +222,14 @@ export function RequestsBoard({ initialTickets, properties }: RequestsBoardProps
                     </p>
                   </td>
 
-                  <td className="max-w-sm px-5 py-4">
-                    <p className="font-medium">{t.title}</p>
+                  <td 
+                    className="max-w-sm px-5 py-4 cursor-pointer group/issue"
+                    onClick={() => setSelectedTicket(t)}
+                    title="Click to view full conversation"
+                  >
+                    <p className="font-medium text-ink group-hover/issue:text-brand-600 transition flex items-center gap-1.5">
+                      {t.title}
+                    </p>
                     <p className="line-clamp-1 text-xs text-ink-muted">{t.description}</p>
                   </td>
 
@@ -254,14 +262,24 @@ export function RequestsBoard({ initialTickets, properties }: RequestsBoardProps
                   </td>
 
                   <td className="px-5 py-4 text-right">
-                    <button
-                      onClick={() => handleDeleteTicket(t.id, t.title)}
-                      className="btn btn-ghost btn-icon h-8 w-8 text-ink-subtle hover:text-red-600 hover:bg-red-50 transition"
-                      title="Delete request"
-                      aria-label="Delete request"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    <div className="flex items-center justify-end gap-1">
+                      <button
+                        onClick={() => setSelectedTicket(t)}
+                        className="btn btn-ghost btn-icon h-8 w-8 text-ink-subtle hover:text-brand-600 hover:bg-brand-50 transition"
+                        title="View conversation"
+                        aria-label="View conversation"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteTicket(t.id, t.title)}
+                        className="btn btn-ghost btn-icon h-8 w-8 text-ink-subtle hover:text-red-600 hover:bg-red-50 transition"
+                        title="Delete request"
+                        aria-label="Delete request"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -284,6 +302,20 @@ export function RequestsBoard({ initialTickets, properties }: RequestsBoardProps
             <EmptyState title="No matching requests." />
           ))}
       </div>
+
+      {/* Full Conversation Modal */}
+      <ConversationModal
+        ticket={selectedTicket}
+        isOpen={Boolean(selectedTicket)}
+        onClose={() => setSelectedTicket(null)}
+        onUpdateStatus={(id, status) => {
+          handleUpdateStatus(id, status);
+          if (selectedTicket && selectedTicket.id === id) {
+            setSelectedTicket({ ...selectedTicket, status });
+          }
+        }}
+        onDeleteTicket={handleDeleteTicket}
+      />
     </>
   );
 }

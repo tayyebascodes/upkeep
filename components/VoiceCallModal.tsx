@@ -51,7 +51,7 @@ export function VoiceCallModal({
         tenant_phone: tenantPhone,
         unit_number: unitNumber,
         title: "Voice Call Inquiry",
-        description: log.map((t) => `${t.role}: ${t.message}`).join("\n"),
+        description: log.map((t) => `${t.role === "agent" ? "AI Agent" : "Tenant"}: ${t.message}`).join("\n\n"),
         category: "Other",
         severity: "Medium",
         status: "Pending",
