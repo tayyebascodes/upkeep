@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useMemo } from "react";
 import { useConversation } from "@11labs/react";
-import { PhoneCall, PhoneOff, Mic, MicOff, Volume2, AlertCircle, X } from "lucide-react";
+import { PhoneCall, PhoneOff, Mic, MicOff, Volume2, AlertCircle, X, Sparkles } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { getAgentPersona } from "@/lib/agent-config";
+import type { Property } from "@/lib/types";
 
 interface VoiceCallModalProps {
   isOpen: boolean;
@@ -14,6 +16,7 @@ interface VoiceCallModalProps {
   tenantId: string;
   tenantName?: string;
   tenantPhone?: string;
+  property?: Partial<Property> | null;
   onTicketCreated?: () => void;
 }
 
@@ -26,6 +29,7 @@ export function VoiceCallModal({
   tenantId,
   tenantName,
   tenantPhone,
+  property,
   onTicketCreated,
 }: VoiceCallModalProps) {
   const [isMuted, setIsMuted] = useState(false);
@@ -34,6 +38,11 @@ export function VoiceCallModal({
   // Refs so the disconnect handler sees the latest transcript and saves only once per call.
   const transcriptRef = useRef<Array<{ role: string; message: string }>>([]);
   const savedRef = useRef(false);
+
+  const persona = useMemo(
+    () => getAgentPersona(property || { name: propertyName }),
+    [property, propertyName]
+  );
 
   const agentId = process.env.NEXT_PUBLIC_ELEVENLABS_AGENT_ID || "agent_6601m4xcbnd7e7atdcr9fwr7sv0h";
 
@@ -50,8 +59,8 @@ export function VoiceCallModal({
         tenant_name: tenantName,
         tenant_phone: tenantPhone,
         unit_number: unitNumber,
-        title: "Voice Call Inquiry",
-        description: log.map((t) => `${t.role === "agent" ? "AI Agent" : "Tenant"}: ${t.message}`).join("\n\n"),
+        title: `Voice Call Inquiry (${persona.name})`,
+        description: log.map((t) => `${t.role === "agent" ? `AI Agent (${persona.name})` : "Tenant"}: ${t.message}`).join("\n\n"),
         category: "Other",
         severity: "Medium",
         status: "Pending",
@@ -94,18 +103,31 @@ export function VoiceCallModal({
       savedRef.current = false;
       setTranscriptLog([]);
       await navigator.mediaDevices.getUserMedia({ audio: true });
-      await conversation.startSession({
+      await (conversation.startSession as any)({
         agentId: agentId,
         dynamicVariables: {
           company_name: propertyName,
           unit_number: unitNumber,
+          agent_name: persona.name,
+          agent_tone: persona.toneName,
+          agent_language: persona.language,
+          emergency_phone: persona.emergencyContact || "",
+        },
+        overrides: {
+          tts: {
+            voiceId: persona.voiceId,
+          },
+          agent: {
+            language: persona.language === "Spanish" ? "es" : "en",
+            firstMessage: persona.greeting.replace("in your unit", `in ${unitNumber || "your unit"}`),
+          },
         },
       });
     } catch (err: any) {
       console.error("Failed to start voice call:", err);
       setErrorMsg(err.message || "Please allow microphone access to talk to the maintenance agent.");
     }
-  }, [conversation, agentId, propertyName, unitNumber]);
+  }, [conversation, agentId, propertyName, unitNumber, persona]);
 
   // End Call (onDisconnect saves the ticket)
   const handleEndCall = useCallback(async () => {
@@ -137,8 +159,21 @@ export function VoiceCallModal({
         </button>
 
         <p className="eyebrow">{propertyName}</p>
-        <h3 className="mt-2 text-xl font-semibold tracking-tight">Maintenance line</h3>
-        <p className="mt-1 flex items-center gap-1.5 text-xs text-ink-muted">
+        <h3 className="mt-1 text-xl font-semibold tracking-tight text-ink">{persona.name}</h3>
+        <div className="mt-1 flex flex-wrap items-center justify-center gap-1.5">
+          <span className="badge bg-brand-50 text-brand-700 px-2 py-0.5 text-xs">
+            {persona.voiceLabel}
+          </span>
+          <span className="badge bg-surface text-ink-muted px-2 py-0.5 text-xs">
+            {persona.toneName}
+          </span>
+          {persona.language !== "English" && (
+            <span className="badge bg-brand-100 text-brand-800 px-2 py-0.5 text-xs">
+              {persona.language}
+            </span>
+          )}
+        </div>
+        <p className="mt-2 flex items-center gap-1.5 text-xs text-ink-muted">
           <span
             className={`h-1.5 w-1.5 rounded-full ${
               isConnected ? "bg-brand-500 animate-pulse" : isConnecting ? "bg-brand-300 animate-pulse" : "bg-ink-subtle"

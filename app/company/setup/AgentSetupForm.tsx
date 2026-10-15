@@ -3,11 +3,13 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { UploadCloud, FileText, Check, ArrowUpRight, Trash2 } from "lucide-react";
+import { UploadCloud, FileText, Check, ArrowUpRight, Trash2, PhoneCall, MessageSquare } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { CopyLink } from "@/components/CopyLink";
 import { FormError } from "@/components/auth/Field";
 import { Select } from "@/components/Select";
+import { VoiceCallModal } from "@/components/VoiceCallModal";
+import { ChatDrawer } from "@/components/ChatDrawer";
 import { createClient } from "@/lib/supabase/client";
 import type { Property, PropertyDocument } from "@/lib/types";
 
@@ -46,6 +48,21 @@ export function AgentSetupForm({ property, properties, initialDocuments }: Agent
   const [tone, setTone] = useState(property.agent_tone ?? "Professional & Empathetic");
   const [emergencyPhone, setEmergencyPhone] = useState(property.emergency_contact ?? "");
   const [documents, setDocuments] = useState(initialDocuments);
+  const [isVoiceOpen, setIsVoiceOpen] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
+
+  const previewProperty: Property = useMemo(
+    () => ({
+      ...property,
+      name: name.trim() || property.name,
+      address: address.trim() || property.address,
+      agent_voice: voice,
+      agent_language: language,
+      agent_tone: tone,
+      emergency_contact: emergencyPhone.trim() || null,
+    }),
+    [property, name, address, voice, language, tone, emergencyPhone]
+  );
 
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -251,6 +268,34 @@ export function AgentSetupForm({ property, properties, initialDocuments }: Agent
             {saving ? "Saving…" : saved ? "Saved" : "Save changes"}
           </button>
 
+          {/* Test / Preview Agent */}
+          <div className="mt-6 border-t border-line pt-5 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <p className="label mb-0">Test your agent</p>
+              <span className="text-[11px] text-ink-subtle">Live preview</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setIsVoiceOpen(true)}
+                className="btn btn-secondary h-9 px-2 text-xs flex items-center justify-center gap-1.5"
+                title="Test calling this agent"
+              >
+                <PhoneCall className="h-3.5 w-3.5 text-brand-600" />
+                <span>Test Call</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsChatOpen(true)}
+                className="btn btn-secondary h-9 px-2 text-xs flex items-center justify-center gap-1.5"
+                title="Test chatting with this agent"
+              >
+                <MessageSquare className="h-3.5 w-3.5 text-brand-600" />
+                <span>Test Chat</span>
+              </button>
+            </div>
+          </div>
+
           <div className="mt-6 space-y-2">
             <p className="label">Tenant link</p>
             <CopyLink path={`/p/${property.slug}`} />
@@ -260,6 +305,26 @@ export function AgentSetupForm({ property, properties, initialDocuments }: Agent
           </div>
         </aside>
       </div>
+
+      {/* Test Modals */}
+      <VoiceCallModal
+        isOpen={isVoiceOpen}
+        onClose={() => setIsVoiceOpen(false)}
+        propertyName={previewProperty.name}
+        propertyId={previewProperty.id}
+        unitNumber="Unit 1A (Test)"
+        tenantId="manager-preview"
+        tenantName="Property Manager"
+        property={previewProperty}
+      />
+      <ChatDrawer
+        isOpen={isChatOpen}
+        onClose={() => setIsChatOpen(false)}
+        propertyName={previewProperty.name}
+        propertyId={previewProperty.id}
+        unitNumber="Unit 1A (Test)"
+        property={previewProperty}
+      />
     </>
   );
 }

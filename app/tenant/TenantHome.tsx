@@ -7,6 +7,7 @@ import { TicketStatusCard } from "@/components/TicketStatusCard";
 import { VoiceCallModal } from "@/components/VoiceCallModal";
 import { ChatDrawer } from "@/components/ChatDrawer";
 import { ConversationModal } from "@/components/ConversationModal";
+import { getAgentPersona } from "@/lib/agent-config";
 import type { Profile, Property, Ticket } from "@/lib/types";
 
 interface TenantHomeProps {
@@ -70,6 +71,8 @@ export function TenantHome({ profile, property, initialTickets }: TenantHomeProp
   });
 
   const firstName = profile.full_name?.split(" ")[0];
+  const persona = useMemo(() => getAgentPersona(property), [property]);
+
   const caller = {
     propertyName: property?.name ?? "Your property",
     propertyId: profile.property_id!,
@@ -83,7 +86,21 @@ export function TenantHome({ profile, property, initialTickets }: TenantHomeProp
   return (
     <div className="space-y-4">
       <header>
-        <p className="eyebrow">{property?.name}</p>
+        <div className="flex items-center justify-between">
+          <p className="eyebrow">{property?.name}</p>
+          <div className="flex items-center gap-1.5 text-xs text-ink-muted bg-surface px-2.5 py-1 rounded-full border border-line">
+            <span className="h-1.5 w-1.5 rounded-full bg-brand-500 animate-pulse" />
+            <span className="font-semibold text-ink">{persona.name}</span>
+            <span>·</span>
+            <span>{persona.toneName}</span>
+            {persona.language !== "English" && (
+              <>
+                <span>·</span>
+                <span className="text-brand-700 font-medium">{persona.language}</span>
+              </>
+            )}
+          </div>
+        </div>
         <h1 className="mt-2 text-3xl font-semibold tracking-tight">
           {firstName ? `Hi, ${firstName}.` : "Hi."}
         </h1>
@@ -100,8 +117,10 @@ export function TenantHome({ profile, property, initialTickets }: TenantHomeProp
             <PhoneCall className="h-5 w-5" />
           </div>
           <div>
-            <p className="font-medium">Call</p>
-            <p className="text-xs text-brand-100">Talk to the agent</p>
+            <p className="font-medium">Call {persona.name}</p>
+            <p className="text-xs text-brand-100">
+              Voice triage · {persona.voiceLabel.split("—")[1]?.trim() || "Natural"}
+            </p>
           </div>
         </button>
 
@@ -113,8 +132,8 @@ export function TenantHome({ profile, property, initialTickets }: TenantHomeProp
             <MessageSquare className="h-5 w-5" />
           </div>
           <div>
-            <p className="font-medium">Chat</p>
-            <p className="text-xs text-ink-muted">Type it out</p>
+            <p className="font-medium">Chat with {persona.name}</p>
+            <p className="text-xs text-ink-muted">Text triage · {persona.language}</p>
           </div>
         </button>
       </div>
@@ -159,8 +178,8 @@ export function TenantHome({ profile, property, initialTickets }: TenantHomeProp
         </p>
       )}
 
-      <VoiceCallModal isOpen={isVoiceOpen} onClose={() => setIsVoiceOpen(false)} {...caller} />
-      <ChatDrawer isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} {...caller} />
+      <VoiceCallModal isOpen={isVoiceOpen} onClose={() => setIsVoiceOpen(false)} {...caller} property={property} />
+      <ChatDrawer isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} {...caller} property={property} />
 
       <ConversationModal
         ticket={selectedTicket}
