@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
-import { ArrowUpRight, Settings2, PhoneCall, MessageSquare, Search, RefreshCw } from "lucide-react";
+import { ArrowUpRight, Settings2, PhoneCall, MessageSquare, Search, RefreshCw, Trash2 } from "lucide-react";
 import { SeverityBadge } from "@/components/StatusBadge";
 import { Select, type SelectOption } from "@/components/Select";
 import { PageHeader, EmptyState } from "@/components/PageHeader";
@@ -65,6 +65,27 @@ export function RequestsBoard({ initialTickets, properties }: RequestsBoardProps
     const { error } = await supabase.from("tickets").update({ status: newStatus }).eq("id", ticketId);
     if (error) {
       console.error("Failed to update status:", error);
+      setTickets(previous);
+    }
+  };
+
+  const handleDeleteTicket = async (ticketId: string, title?: string) => {
+    if (!confirm(`Are you sure you want to delete "${title || "this request"}"?`)) return;
+
+    const previous = tickets;
+    setTickets((prev) => prev.filter((t) => t.id !== ticketId));
+
+    try {
+      const res = await fetch(`/api/tickets?id=${ticketId}`, { method: "DELETE" });
+      if (!res.ok) {
+        const { error } = await supabase.from("tickets").delete().eq("id", ticketId);
+        if (error) {
+          console.error("Failed to delete ticket:", error);
+          setTickets(previous);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to delete ticket:", err);
       setTickets(previous);
     }
   };
@@ -185,6 +206,7 @@ export function RequestsBoard({ initialTickets, properties }: RequestsBoardProps
                 <th className="px-5 py-3 font-medium">Severity</th>
                 <th className="px-5 py-3 font-medium">Channel</th>
                 <th className="px-5 py-3 font-medium">Status</th>
+                <th className="px-5 py-3 font-medium text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line text-sm">
@@ -229,6 +251,17 @@ export function RequestsBoard({ initialTickets, properties }: RequestsBoardProps
                       className={STATUS_SELECT[t.status]}
                       aria-label={`Status for ${t.title}`}
                     />
+                  </td>
+
+                  <td className="px-5 py-4 text-right">
+                    <button
+                      onClick={() => handleDeleteTicket(t.id, t.title)}
+                      className="btn btn-ghost btn-icon h-8 w-8 text-ink-subtle hover:text-red-600 hover:bg-red-50 transition"
+                      title="Delete request"
+                      aria-label="Delete request"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
                   </td>
                 </tr>
               ))}

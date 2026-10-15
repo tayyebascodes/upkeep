@@ -45,6 +45,22 @@ export function TenantHome({ profile, property, initialTickets }: TenantHomeProp
     };
   }, [supabase, profile.id, fetchTickets]);
 
+  const handleDeleteTicket = async (id: string, title?: string) => {
+    if (!confirm(`Are you sure you want to delete "${title || "this request"}"?`)) return;
+
+    setTickets((prev) => prev.filter((t) => t.id !== id));
+
+    try {
+      const res = await fetch(`/api/tickets?id=${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        await supabase.from("tickets").delete().eq("id", id);
+      }
+    } catch (err) {
+      console.error("Failed to delete ticket:", err);
+      fetchTickets();
+    }
+  };
+
   const filteredTickets = tickets.filter((t) => {
     if (activeTab === "Active") return t.status !== "Resolved";
     if (activeTab === "Resolved") return t.status === "Resolved";
@@ -119,7 +135,9 @@ export function TenantHome({ profile, property, initialTickets }: TenantHomeProp
         </div>
 
         {filteredTickets.length > 0 ? (
-          filteredTickets.map((ticket) => <TicketStatusCard key={ticket.id} ticket={ticket} />)
+          filteredTickets.map((ticket) => (
+            <TicketStatusCard key={ticket.id} ticket={ticket} onDelete={handleDeleteTicket} />
+          ))
         ) : (
           <p className="py-10 text-center text-sm text-ink-subtle">Nothing here.</p>
         )}
