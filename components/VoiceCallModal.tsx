@@ -197,7 +197,7 @@ export function VoiceCallModal({
         )}
 
         {transcriptLog.length > 0 && (
-          <p className="mb-6 line-clamp-2 text-sm italic text-ink-muted">
+          <p className="mb-6 line-clamp-2 text-sm text-ink-muted">
             &ldquo;{transcriptLog[transcriptLog.length - 1]?.message}&rdquo;
           </p>
         )}
